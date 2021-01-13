@@ -2,8 +2,6 @@ package agent
 
 import (
 	"encoding/json"
-	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/Klevry/klevr/pkg/common"
@@ -73,48 +71,37 @@ func Polling(agent *KlevrAgent) {
 		logger.Error(err)
 	}
 
-	provcheck := exec.Command("sh", "-c", "ssh provbee-service busybee beestatus hello > /tmp/con")
-	errcheck := provcheck.Run()
-	if errcheck != nil {
-		logger.Errorf("provbee-service is not running!!!: %v", errcheck)
-	}
+	// change task status
+	logger.Debugf("%+v", body.Task)
 
-	hi := ReadFile("/tmp/con")
-	str := strings.TrimRight(string(hi), "\n")
+	for i := 0; i < len(body.Task); i++ {
+		if body.Task[i].Status == common.WaitPolling || body.Task[i].Status == common.HandOver {
+			body.Task[i].Status = common.WaitExec
+		}
 
-	if strings.Compare(str, "hi") == 0 {
-		// change task status
-		logger.Debugf("%+v", body.Task)
+		logger.Debugf("%v", body.Task[i].ExeAgentChangeable)
 
-		for i := 0; i < len(body.Task); i++ {
-			if body.Task[i].Status == common.WaitPolling || body.Task[i].Status == common.HandOver {
-				body.Task[i].Status = common.WaitExec
-			}
+		if body.Task[i].ExeAgentChangeable {
+			executor.RunTask(&body.Task[i])
+		} else {
+			logger.Debugf("%v", &body.Task[i])
 
-			logger.Debugf("%v", body.Task[i].ExeAgentChangeable)
+			for _, v := range agent.Agents {
+				if v.AgentKey == body.Task[i].AgentKey {
+					ip := v.IP
 
-			if body.Task[i].ExeAgentChangeable {
-				executor.RunTask(&body.Task[i])
-			} else {
-				logger.Debugf("%v", &body.Task[i])
+					t := JsonMarshal(body.Task[i])
 
-				for _, v := range agent.Agents {
-					if v.AgentKey == body.Task[i].AgentKey {
-						ip := v.IP
-
-						t := JsonMarshal(body.Task[i])
-
-						logger.Debugf("%v", body.Task[i])
-						agent.PrimaryTaskSend(ip, t)
-					} else {
-						executor.RunTask(&body.Task[i])
-					}
+					logger.Debugf("%v", body.Task[i])
+					agent.PrimaryTaskSend(ip, t)
+				} else {
+					executor.RunTask(&body.Task[i])
 				}
 			}
 		}
-
-		receivedTasks = body.Task
 	}
+
+	receivedTasks = body.Task
 
 	agent.Agents = body.Agent.Nodes
 }
