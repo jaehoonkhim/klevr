@@ -37,6 +37,11 @@ type Config struct {
 	Server ServerInfo
 	Agent  AgentInfo
 	DB     common.DBInfo
+	Page   PageInfo
+}
+
+type PageInfo struct {
+	Secret string
 }
 
 // ServerInfo klevr manager server info struct

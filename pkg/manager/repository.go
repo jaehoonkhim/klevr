@@ -557,3 +557,40 @@ func (tx *Tx) purgeTask(id uint64) {
 		panic(err)
 	}
 }
+
+func (tx *Tx) getPageMember(userID string) (int64, *[]PageMembers) {
+	var members []PageMembers
+
+	cnt, err := tx.Where("USER_ID = ?", userID).FindAndCount(&members)
+	if err != nil {
+		panic(err)
+	}
+
+	return cnt, &members
+}
+
+func (tx *Tx) insertPageMember(p *PageMembers) *PageMembers {
+	result, err := tx.Exec("INSERT INTO `PAGE_MEMBERS` (`user_id`,`user_password`) VALUES (?,?)", p.UserId, p.UserPassword)
+	if err != nil {
+		panic(err)
+	}
+
+	result.RowsAffected()
+
+	id, _ := result.LastInsertId()
+
+	p.Id = uint64(id)
+
+	logger.Debugf("Inserted task : %v", p)
+
+	return p
+}
+
+func (tx *Tx) updatePageMember(p *PageMembers) {
+	cnt, err := tx.Where("USER_ID = ?", p.UserId).Update(p)
+	logger.Debugf("Updated PageMember(%d) : %v", cnt, p)
+
+	if err != nil {
+		panic(err)
+	}
+}
