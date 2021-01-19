@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Klevry/klevr/pkg/common"
 	"github.com/NexClipper/logger"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
@@ -29,7 +31,13 @@ func (api *API) InitPage(page *mux.Router) {
 	if cnt == 0 {
 		encPassword, err := common.Encrypt(api.Manager.Config.Server.EncryptionKey, "admin")
 		if err == nil {
-			p := &PageMembers{UserId: "admin", UserPassword: encPassword, Activated: false}
+			apiKey := strings.Replace(uuid.New().String(), "-", "", -1)
+			p := &PageMembers{
+				UserId:       "admin",
+				UserPassword: encPassword,
+				Activated:    false,
+				ApiKey:       apiKey,
+			}
 			tx.insertPageMember(p)
 		} else {
 			logger.Error(err)
@@ -86,6 +94,16 @@ func (api *PageAPI) SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	resp, err := json.Marshal(struct {
+		Status string `json:"apikey"`
+	}{
+		pm.ApiKey,
+	})
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	expirationTime := time.Now().Add(1 * time.Hour)
 	jwtHelper := common.NewJWTHelper([]byte(manager.Config.Page.Secret)).AddClaims("id", id).SetExpirationTime(expirationTime.Unix())
 	tks, err := jwtHelper.GenToken()
@@ -96,6 +114,7 @@ func (api *PageAPI) SignIn(w http.ResponseWriter, r *http.Request) {
 
 	http.SetCookie(w, &http.Cookie{Name: "token", Value: tks, Expires: expirationTime})
 	w.WriteHeader(200)
+	fmt.Fprintf(w, "%s", resp)
 }
 
 func (api *PageAPI) SignOut(w http.ResponseWriter, r *http.Request) {

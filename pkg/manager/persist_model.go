@@ -132,4 +132,5 @@ type PageMembers struct {
 	UserId       string `xorm:"user_id"`
 	UserPassword string `xorm:"user_password"`
 	Activated    bool   `xorm:"activated"`
+	ApiKey       string `xorm:"api_key"`
 }
