@@ -131,4 +131,5 @@ type PageMembers struct {
 	Id           uint64 `xorm:"pk autoincr"`
 	UserId       string `xorm:"user_id"`
 	UserPassword string `xorm:"user_password"`
+	Activated    bool   `xorm:"activated"`
 }

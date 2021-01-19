@@ -570,7 +570,7 @@ func (tx *Tx) getPageMember(userID string) (int64, *[]PageMembers) {
 }
 
 func (tx *Tx) insertPageMember(p *PageMembers) *PageMembers {
-	result, err := tx.Exec("INSERT INTO `PAGE_MEMBERS` (`user_id`,`user_password`) VALUES (?,?)", p.UserId, p.UserPassword)
+	result, err := tx.Exec("INSERT INTO `PAGE_MEMBERS` (`user_id`,`user_password`, `activated`) VALUES (?,?,?)", p.UserId, p.UserPassword, p.Activated)
 	if err != nil {
 		panic(err)
 	}
@@ -587,7 +587,7 @@ func (tx *Tx) insertPageMember(p *PageMembers) *PageMembers {
 }
 
 func (tx *Tx) updatePageMember(p *PageMembers) {
-	cnt, err := tx.Where("USER_ID = ?", p.UserId).Update(p)
+	cnt, err := tx.Where("USER_ID = ?", p.UserId).Cols("ACTIVATED").Update(p)
 	logger.Debugf("Updated PageMember(%d) : %v", cnt, p)
 
 	if err != nil {
