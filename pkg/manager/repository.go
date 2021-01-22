@@ -155,6 +155,13 @@ func (tx *Tx) addAgentGroup(ag *AgentGroups) {
 	}
 }
 
+func (tx *Tx) deleteAgentGroup(groupID uint64) {
+	_, err := tx.Where("ID = ?", groupID).Delete(&AgentGroups{})
+	if err != nil {
+		panic(err)
+	}
+}
+
 func (tx *Tx) addAgent(a *Agents) {
 	cnt, err := tx.Insert(a)
 	logger.Debugf("Inserted Agent(%d) : %v", cnt, a)
@@ -542,17 +549,17 @@ func (tx *Tx) cancelTask(id uint64) bool {
 
 // Task 부가 데이터 삭제
 func (tx *Tx) purgeTask(id uint64) {
-	_, err := tx.Where("TASK_ID = ?").Delete(&TaskDetail{})
+	_, err := tx.Where("TASK_ID = ?", id).Delete(&TaskDetail{})
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = tx.Where("TASK_ID = ?").Delete(&TaskLogs{})
+	_, err = tx.Where("TASK_ID = ?", id).Delete(&TaskLogs{})
 	if err != nil {
 		panic(err)
 	}
 
-	_, err = tx.Where("TASK_ID = ?").Delete(&TaskSteps{})
+	_, err = tx.Where("TASK_ID = ?", id).Delete(&TaskSteps{})
 	if err != nil {
 		panic(err)
 	}
@@ -570,7 +577,7 @@ func (tx *Tx) getPageMember(userID string) (int64, *[]PageMembers) {
 }
 
 func (tx *Tx) insertPageMember(p *PageMembers) *PageMembers {
-	result, err := tx.Exec("INSERT INTO `PAGE_MEMBERS` (`user_id`,`user_password`, `activated`) VALUES (?,?,?)", p.UserId, p.UserPassword, p.Activated)
+	result, err := tx.Exec("INSERT INTO `PAGE_MEMBERS` (`user_id`,`user_password`, `activated`, `api_key`) VALUES (?,?,?,?)", p.UserId, p.UserPassword, p.Activated, p.ApiKey)
 	if err != nil {
 		panic(err)
 	}

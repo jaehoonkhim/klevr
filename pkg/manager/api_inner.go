@@ -23,6 +23,7 @@ func (api *API) InitInner(inner *mux.Router) {
 	registURI(inner, POST, "/groups", serversAPI.addGroup)
 	registURI(inner, GET, "/groups", serversAPI.getGroups)
 	registURI(inner, GET, "/groups/{groupID}", serversAPI.getGroup)
+	registURI(inner, DELETE, "/groups/{groupID}", serversAPI.deleteGroup)
 	registURI(inner, POST, "/groups/{groupID}/apikey", serversAPI.addAPIKey)
 	registURI(inner, PUT, "/groups/{groupID}/apikey", serversAPI.updateAPIKey)
 	registURI(inner, GET, "/groups/{groupID}/apikey", serversAPI.getAPIKey)
@@ -773,6 +774,31 @@ func (api *serversAPI) getGroup(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(200)
 	fmt.Fprintf(w, "%s", b)
+}
+
+func (api *serversAPI) deleteGroup(w http.ResponseWriter, r *http.Request) {
+	ctx := CtxGetFromRequest(r)
+	tx := GetDBConn(ctx)
+
+	vars := mux.Vars(r)
+	groupID, err := strconv.ParseUint(vars["groupID"], 10, 64)
+	if err != nil {
+		common.WriteHTTPError(500, w, err, fmt.Sprintf("Invalid group id : %+v", vars["groupID"]))
+		return
+	}
+
+	// logger.Debug("%v", time.Now().UTC())
+
+	cnt, _ := tx.getAgentsByGroupId(groupID)
+	if cnt > 0 {
+		common.WriteHTTPError(500, w, err, fmt.Sprintf("It cannot remove the zone of the groupid: %d", groupID))
+		return
+	}
+
+	tx.deleteAgentGroup(groupID)
+
+	w.WriteHeader(200)
+	fmt.Fprintf(w, "{\"deleted\":%v}", true)
 }
 
 func TaskDtoToPerist(dto *common.KlevrTask) *Tasks {

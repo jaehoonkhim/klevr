@@ -165,6 +165,10 @@ func (executor *taskExecutor) execute(tw *TaskWrapper) {
 
 				// task step 실행
 				if RESERVED == step.CommandType {
+					if step.Command == "ForceShutdownAgent" {
+						tw.Status = Complete
+						executor.updatedTasks.Push(*tw.KlevrTask)
+					}
 					result, err = runReservedCommand(result, tw.KlevrTask, step)
 				} else if INLINE == step.CommandType {
 					result, err = runInlineCommand(result, tw.KlevrTask, step)

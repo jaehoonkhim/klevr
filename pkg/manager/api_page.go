@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -50,6 +51,7 @@ func (api *API) InitPage(page *mux.Router) {
 	registURI(page, GET, "/signout", pageAPI.SignOut)
 	registURI(page, POST, "/changepassword", pageAPI.ChangePassword)
 	registURI(page, GET, "/activated/{id}", pageAPI.Activated)
+	registURI(page, DELETE, "/agent", pageAPI.DeleteAgent)
 }
 
 // SignIn API
@@ -205,4 +207,71 @@ func (api *PageAPI) Activated(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(200)
 	fmt.Fprintf(w, "%s", resp)
+}
+
+func (api *PageAPI) DeleteAgent(w http.ResponseWriter, r *http.Request) {
+	ctx := CtxGetFromRequest(r)
+	tx := GetDBConn(ctx)
+
+	// groupID, agentKey
+	qryGroupID := r.URL.Query()["groupID"]
+	qryAgentKey := r.URL.Query()["agentKey"]
+
+	groupID, err := strconv.ParseUint(qryGroupID[0], 0, 64)
+	if err != nil {
+		common.WriteHTTPError(400, w, err, fmt.Sprintf("invalid groupID - [%s]", qryGroupID[0]))
+		return
+	}
+
+	var agentKey string
+	if len(qryAgentKey) == 1 {
+		agentKey = qryAgentKey[0]
+	} else {
+		common.WriteHTTPError(400, w, err, fmt.Sprint("invalid agentKey"))
+		return
+	}
+
+	// agent 삭제를 위한 task를 생성
+	t := common.KlevrTask{
+		ZoneID:             groupID,
+		Name:               "DeleteAgent",
+		TaskType:           common.AtOnce,
+		TotalStepCount:     1,
+		Parameter:          "",
+		AgentKey:           agentKey,
+		ExeAgentChangeable: false,
+		Steps: []*common.KlevrTaskStep{&common.KlevrTaskStep{
+			Seq:         1,
+			CommandName: "DeleteAgent",
+			CommandType: common.RESERVED,
+			Command:     "ForceShutdownAgent",
+			IsRecover:   false,
+		}},
+		EventHookSendingType: common.EventHookWithAll,
+	}
+
+	// Task 상태 설정
+	t = *common.TaskStatusAdd(&t)
+
+	// DTO -> entity
+	persistTask := *TaskDtoToPerist(&t)
+
+	manager := ctx.Get(CtxServer).(*KlevrManager)
+
+	// DB insert
+	persistTask = *tx.insertTask(manager, &persistTask)
+
+	task, _ := tx.getTask(manager, persistTask.Id)
+
+	dto := TaskPersistToDto(task)
+
+	b, err := json.Marshal(dto)
+	if err != nil {
+		panic(err)
+	}
+
+	logger.Debugf("response : [%s]", string(b))
+
+	w.WriteHeader(200)
+	fmt.Fprintf(w, "%s", b)
 }
